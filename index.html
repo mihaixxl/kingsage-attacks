@@ -4,67 +4,16 @@
   <meta charset="utf-8">
   <title>Atacuri KingsAge</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      margin: 20px;
-      background: #fafafa;
-      color: #333;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 10px;
-    }
-    p {
-      text-align: center;
-      font-size: 14px;
-      color: #666;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      background: white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 6px 8px;
-      font-size: 14px;
-      text-align: left;
-    }
-    th {
-      background: #f4f4f4;
-      position: sticky;
-      top: 0;
-      z-index: 1;
-    }
-    tr:nth-child(even) {
-      background: #f9f9f9;
-    }
-    tr.urgent {
-      background: #ffe0e0;
-      font-weight: bold;
-    }
-    @media (max-width: 600px) {
-      table, thead, tbody, tr, td, th {
-        display: block;
-      }
-      tr { margin-bottom: 10px; }
-      td, th {
-        padding: 8px;
-        text-align: right;
-      }
-      td::before, th::before {
-        float: left;
-        font-weight: bold;
-        color: #555;
-      }
-      td:nth-of-type(1)::before { content: "Descriere:"; }
-      td:nth-of-type(2)::before { content: "Destinație:"; }
-      td:nth-of-type(3)::before { content: "Origine:"; }
-      td:nth-of-type(4)::before { content: "Sosire:"; }
-    }
+    body { font-family: Arial, sans-serif; margin: 20px; background: #fafafa; color: #333; }
+    h1 { text-align: center; margin-bottom: 10px; }
+    p { text-align: center; font-size: 14px; color: #666; }
+    table { border-collapse: collapse; width: 100%; background: white; }
+    th, td { border: 1px solid #ccc; padding: 8px; font-size: 14px; text-align: left; }
+    th { background: #f0f0f0; }
+    img { height: 20px; vertical-align: middle; margin-right: 5px; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    tr.urgent { background: #ffe0e0; }
   </style>
 </head>
 <body>
@@ -74,21 +23,23 @@
   <table id="tbl">
     <thead>
       <tr>
-        <th>Descriere</th>
+        <th>Unitate</th>
+        <th>Tip</th>
         <th>Destinație</th>
         <th>Origine</th>
         <th>Sosire</th>
+        <th>Rămâs</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
 
   <script>
-    const URL_JSON = "ka_atacuri.json"; // fișierul tău exportat
+    const GIST_RAW_URL = "https://gist.githubusercontent.com/mihaixxl/0fc6426ec97aafcaa3895a31de3b1b5d/raw/65ab46251a9aaf92e73a9b49f7159d68fa75ddb3/ka_attacks.json";
 
     async function load() {
       try {
-        const res = await fetch(URL_JSON + "?t=" + Date.now());
+        const res = await fetch(GIST_RAW_URL + "?t=" + Date.now());
         const j = await res.json();
 
         document.getElementById("stamp").textContent =
@@ -100,27 +51,34 @@
         j.data.forEach(r => {
           const tr = document.createElement("tr");
 
-          // dacă sosirea are un timp < 10 minute -> roșu
-          if (r.sosire.includes("min")) {
-            const min = parseInt(r.sosire);
-            if (!isNaN(min) && min < 10) tr.classList.add("urgent");
+          // Verifică timpul "ramas" dacă e mai mic de 10 minute
+          if (r.ramas) {
+            const parts = r.ramas.split(":");
+            if (parts.length === 2) {
+              const minutes = parseInt(parts[0]);
+              if (!isNaN(minutes) && minutes < 10) {
+                tr.classList.add("urgent");
+              }
+            }
           }
 
           tr.innerHTML = `
-            <td>${r.descriere}</td>
-            <td>${r.destin}</td>
-            <td>${r.origine}</td>
-            <td>${r.sosire}</td>
+            <td>${r.unitImg ? `<img src="${r.unitImg}">` : ""}</td>
+            <td>${r.tip || ""}</td>
+            <td>${r.destin || ""}</td>
+            <td>${r.origine || ""}</td>
+            <td>${r.sosire || ""}</td>
+            <td>${r.ramas || ""}</td>
           `;
           tbody.appendChild(tr);
         });
-      } catch (e) {
-        console.error("Eroare încărcare JSON", e);
+      } catch (err) {
+        console.error("Eroare la încărcarea JSON", err);
       }
     }
 
     load();
-    setInterval(load, 60000); // reîncarcă la fiecare 60s
+    setInterval(load, 60000);
   </script>
 </body>
 </html>
