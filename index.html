@@ -2,25 +2,24 @@
 <html lang="ro">
 <head>
   <meta charset="UTF-8">
-  <title>KA - Atacuri</title>
+  <title>KA Attacks Viewer</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 20px; }
-    h1 { text-align: center; color: #333; }
-    table { border-collapse: collapse; margin: 20px auto; width: 95%; background: white; }
-    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: center; }
-    th { background: #eee; }
-    img { height: 20px; vertical-align: middle; }
-    .small { font-size: 12px; color: #666; }
+    body { font-family: Arial, sans-serif; background:#111; color:#eee; }
+    h1 { color:#ff5555; }
+    table { border-collapse: collapse; width: 100%; margin-top:20px; }
+    th, td { border:1px solid #444; padding:6px; text-align:left; }
+    th { background:#222; }
+    tr:nth-child(even) { background:#1c1c1c; }
+    img { height:20px; vertical-align:middle; }
   </style>
 </head>
 <body>
-  <h1>📜 Atacuri KingsAge</h1>
-  <div id="info" class="small" style="text-align:center; margin-bottom:10px;">
-    Se încarcă datele...
-  </div>
-  <table id="attacks">
+  <h1>📊 Atacuri KingsAge</h1>
+  <p>Ultimul export: <span id="lastUpdate">–</span></p>
+  <table id="attacksTable">
     <thead>
       <tr>
+        <th>Tip</th>
         <th>Unitate</th>
         <th>Destinație</th>
         <th>Origine</th>
@@ -33,34 +32,35 @@
 
   <script>
     async function loadData() {
-      const url = "https://gist.githubusercontent.com/mihaixxl/0fc6426ec97aafcaa3895a31de3b1b5d/raw/ka_attacks.json?ts=" + Date.now();
       try {
+        const url = "https://gist.githubusercontent.com/mihaixxl/0fc6426ec97aafcaa3895a31de3b1b5d/raw/ka_attacks.json?ts=" + Date.now();
         const res = await fetch(url);
         const json = await res.json();
 
-        document.getElementById("info").innerText = "Ultimul export: " + json.exportatLa;
+        document.getElementById("lastUpdate").textContent = new Date(json.exportatLa).toLocaleString();
 
-        const tbody = document.querySelector("#attacks tbody");
+        const tbody = document.querySelector("#attacksTable tbody");
         tbody.innerHTML = "";
 
-        json.data.forEach(a => {
+        json.data.forEach(atac => {
           const tr = document.createElement("tr");
           tr.innerHTML = `
-            <td>${a.unitImg ? `<img src="${a.unitImg}">` : ""} ${a.unit || ""}</td>
-            <td>${a.destin}</td>
-            <td>${a.origine}</td>
-            <td>${a.sosire}</td>
-            <td>${a.ramas}</td>
+            <td>${atac.tip}</td>
+            <td>${atac.unitImg ? `<img src="${atac.unitImg}">` : ""} ${atac.unit || ""}</td>
+            <td>${atac.destin}</td>
+            <td>${atac.origine}</td>
+            <td>${atac.sosire}</td>
+            <td>${atac.ramas}</td>
           `;
           tbody.appendChild(tr);
         });
       } catch (e) {
-        document.getElementById("info").innerText = "❌ Eroare la încărcare: " + e;
+        console.error("❌ Eroare încărcare JSON:", e);
       }
     }
 
+    // încarcă imediat și apoi la fiecare 10 secunde
     loadData();
-    // Reîncarcă automat la fiecare 10 secunde
     setInterval(loadData, 10000);
   </script>
 </body>
