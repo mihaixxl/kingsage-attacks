@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>KA Attacks Viewer</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#111; color:#eee; }
+    body { font-family: Arial, sans-serif; background:#111; color:#eee; margin:20px; }
     h1 { color:#ff5555; }
     table { border-collapse: collapse; width: 100%; margin-top:20px; }
     th, td { border:1px solid #444; padding:6px; text-align:left; }
@@ -33,11 +33,12 @@
   <script>
     async function loadData() {
       try {
-        const url = "https://gist.githubusercontent.com/mihaixxl/0324db7bac21489f29750fc33101b40b/raw/ka_attacks.json?ts=" + Date.now();
+        const url = "https://gist.githubusercontent.com/mihaixxl/0324db7bac21489f29750fc33101b40b/raw/ka_attacks.json" + "?ts=" + Date.now();
         const res = await fetch(url);
         const json = await res.json();
 
-        document.getElementById("lastUpdate").textContent = new Date(json.exportatLa).toLocaleString();
+        document.getElementById("lastUpdate").textContent =
+          new Date(json.exportatLa).toLocaleString();
 
         const tbody = document.querySelector("#attacksTable tbody");
         tbody.innerHTML = "";
