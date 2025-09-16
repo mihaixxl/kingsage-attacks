@@ -4,58 +4,33 @@
   <meta charset="UTF-8">
   <title>KA Attacks Monitor</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      color: #222;
-      padding: 20px;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 10px;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      max-width: 900px;
-      margin: 20px auto;
-      background: white;
-      box-shadow: 0 0 5px rgba(0,0,0,0.2);
-    }
-    th, td {
-      padding: 8px 12px;
-      border: 1px solid #ccc;
-      text-align: center;
-    }
-    th {
-      background: #333;
-      color: white;
-    }
-    .countdown {
-      font-weight: bold;
-      padding: 4px 8px;
-      border-radius: 4px;
-      display: inline-block;
-      min-width: 70px;
-    }
+    body { font-family: Arial, sans-serif; background: #f4f4f4; color: #222; padding: 20px; }
+    h1 { text-align: center; margin-bottom: 10px; }
+    table { border-collapse: collapse; width: 100%; max-width: 1000px; margin: 20px auto; background: white; box-shadow: 0 0 5px rgba(0,0,0,0.2); }
+    th, td { padding: 8px 12px; border: 1px solid #ccc; text-align: center; }
+    th { background: #333; color: white; }
+    .countdown { font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block; min-width: 70px; }
     .danger { background: rgba(255, 99, 71, 0.8); color: white; }   /* < 15 min */
     .warning { background: rgba(255, 193, 7, 0.85); color: #222; } /* < 1h */
     .safe { background: rgba(40, 167, 69, 0.7); color: white; }    /* < 3h */
     .long { background: rgba(0, 123, 255, 0.7); color: white; }    /* >= 3h */
-    img {
-      height: 20px;
-      vertical-align: middle;
-    }
-    .footer {
-      text-align: center;
-      margin-top: 15px;
-      font-size: 14px;
-      color: #666;
-    }
+    img { height: 20px; vertical-align: middle; }
+    .footer { text-align: center; margin-top: 15px; font-size: 14px; color: #666; }
+    #filters { text-align: center; margin-bottom: 15px; }
+    #filters input { margin: 0 5px; padding: 4px; }
   </style>
 </head>
 <body>
   <h1>⚔️ Monitorizare Atacuri KingsAge</h1>
+
+  <!-- FILTRE -->
+  <div id="filters">
+    <label>🔎 Jucător: <input type="text" id="filterPlayer" placeholder="ex. Panteraso"></label>
+    <label>📍 Coordonate: <input type="text" id="filterCoord" placeholder="ex. 509|495"></label>
+    <label>🏰 Doar snobi: <input type="checkbox" id="filterSnob"></label>
+    <button onclick="loadData()">Aplică filtre</button>
+  </div>
+
   <div id="lastExport" class="footer"></div>
   <table id="attacksTable">
     <thead>
@@ -71,12 +46,16 @@
     <tbody></tbody>
   </table>
 
+  <!-- Sunet pentru snobi -->
+  <audio id="snobSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+
   <script>
     const GIST_URL = "https://gist.githubusercontent.com/mihaixxl/0fc6426ec97aafcaa3895a31de3b1b5d/raw/ka_attacks.json";
+    let lastSnobCount = 0;
 
     async function loadData() {
       try {
-        const res = await fetch(GIST_URL + "?t=" + Date.now()); // evită cache
+        const res = await fetch(GIST_URL + "?t=" + Date.now());
         const json = await res.json();
 
         document.getElementById("lastExport").textContent =
@@ -85,8 +64,22 @@
         const tbody = document.querySelector("#attacksTable tbody");
         tbody.innerHTML = "";
 
+        // 🔹 Filtre
+        const fPlayer = document.getElementById("filterPlayer").value.toLowerCase();
+        const fCoord = document.getElementById("filterCoord").value;
+        const fSnob = document.getElementById("filterSnob").checked;
+
+        let snobCount = 0;
+
         json.data.forEach(atac => {
+          if (fPlayer && !atac.origine.toLowerCase().includes(fPlayer) && !atac.destin.toLowerCase().includes(fPlayer)) return;
+          if (fCoord && !atac.destin.includes(fCoord)) return;
+          if (fSnob && !atac.unitImg.includes("unit_snob")) return;
+
+          if (atac.unitImg.includes("unit_snob")) snobCount++;
+
           const tr = document.createElement("tr");
+          const ts = new Date(atac.sosire).getTime();
 
           tr.innerHTML = `
             <td>${atac.tip}</td>
@@ -94,13 +87,18 @@
             <td>${atac.destin}</td>
             <td>${atac.origine}</td>
             <td>${atac.sosire}</td>
-            <td><span class="countdown" data-ramas="${atac.ramas}">${atac.ramas}</span></td>
+            <td><span class="countdown" data-timestamp="${ts}"></span></td>
           `;
-
           tbody.appendChild(tr);
         });
 
-        updateCountdowns(); // aplică culorile imediat
+        // Sunet dacă a apărut un snob nou
+        if (snobCount > lastSnobCount) {
+          document.getElementById("snobSound").play();
+        }
+        lastSnobCount = snobCount;
+
+        updateCountdowns();
       } catch (e) {
         console.error("Eroare la încărcare JSON", e);
       }
@@ -114,23 +112,15 @@
     }
 
     function updateCountdowns() {
+      const now = Date.now();
       document.querySelectorAll(".countdown").forEach(span => {
-        let parts = span.textContent.split(":").map(Number);
-        let sec = 0;
+        const ts = parseInt(span.getAttribute("data-timestamp"), 10);
+        let sec = Math.floor((ts - now) / 1000);
+        if (sec < 0) sec = 0;
 
-        if (parts.length === 3) {
-          sec = parts[0] * 3600 + parts[1] * 60 + parts[2];
-        } else if (parts.length === 2) {
-          sec = parts[0] * 60 + parts[1];
-        }
-
-        if (sec > 0) sec--;
-
-        // Actualizează text
         span.textContent = formatTime(sec);
 
-        // Culori în funcție de timp
-        span.className = "countdown"; // reset
+        span.className = "countdown";
         if (sec < 15 * 60) span.classList.add("danger");
         else if (sec < 60 * 60) span.classList.add("warning");
         else if (sec < 3 * 3600) span.classList.add("safe");
@@ -139,7 +129,7 @@
     }
 
     loadData();
-    setInterval(loadData, 60000);   // reîncarcă la 1 minut
+    setInterval(loadData, 60000);   // la 1 minut
     setInterval(updateCountdowns, 1000); // update la secundă
   </script>
 </body>
