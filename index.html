@@ -2,36 +2,33 @@
 <html lang="ro">
 <head>
   <meta charset="UTF-8">
-  <title>KA Attacks Monitor</title>
+  <title>⚔️ Monitorizare Atacuri KingsAge</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f4; color: #222; padding: 20px; }
-    h1 { text-align: center; margin-bottom: 10px; }
-    table { border-collapse: collapse; width: 100%; max-width: 1000px; margin: 20px auto; background: white; box-shadow: 0 0 5px rgba(0,0,0,0.2); }
-    th, td { padding: 8px 12px; border: 1px solid #ccc; text-align: center; }
-    th { background: #333; color: white; }
-    .countdown { font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block; min-width: 70px; }
-    .danger { background: rgba(255, 99, 71, 0.8); color: white; }   /* < 15 min */
-    .warning { background: rgba(255, 193, 7, 0.85); color: #222; } /* < 1h */
-    .safe { background: rgba(40, 167, 69, 0.7); color: white; }    /* < 3h */
-    .long { background: rgba(0, 123, 255, 0.7); color: white; }    /* >= 3h */
-    img { height: 20px; vertical-align: middle; }
-    .footer { text-align: center; margin-top: 15px; font-size: 14px; color: #666; }
-    #filters { text-align: center; margin-bottom: 15px; }
-    #filters input { margin: 0 5px; padding: 4px; }
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; }
+    h1 { text-align: center; }
+    table { border-collapse: collapse; width: 100%; margin-top: 15px; }
+    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    th { background: #eee; }
+    .countdown { font-weight: bold; padding: 3px 6px; border-radius: 4px; }
+    .danger { background: #ff4d4d; color: white; }
+    .warning { background: #ffcc00; color: black; }
+    .safe { background: #66ff66; color: black; }
+    .long { background: #ddd; color: black; }
+    .filters { margin: 10px auto; text-align: center; }
+    .filters input { margin: 0 5px; padding: 3px; }
   </style>
 </head>
 <body>
   <h1>⚔️ Monitorizare Atacuri KingsAge</h1>
+  <p id="exportTime">Ultimul export: ...</p>
 
-  <!-- FILTRE -->
-  <div id="filters">
-    <label>🔎 Jucător: <input type="text" id="filterPlayer" placeholder="ex. Panteraso"></label>
-    <label>📍 Coordonate: <input type="text" id="filterCoord" placeholder="ex. 509|495"></label>
-    <label>🏰 Doar snobi: <input type="checkbox" id="filterSnob"></label>
-    <button onclick="loadData()">Aplică filtre</button>
+  <div class="filters">
+    👤 Jucător: <input type="text" id="filterPlayer" placeholder="ex: Panteraso">
+    📍 Coordonate: <input type="text" id="filterCoords" placeholder="ex: 509|495">
+    👑 Doar snobi: <input type="checkbox" id="filterSnob">
+    <button onclick="applyFilters()">Aplică filtre</button>
   </div>
 
-  <div id="lastExport" class="footer"></div>
   <table id="attacksTable">
     <thead>
       <tr>
@@ -46,80 +43,69 @@
     <tbody></tbody>
   </table>
 
-  <!-- Sunet pentru snobi -->
-  <audio id="snobSound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
-
   <script>
     const GIST_URL = "https://gist.githubusercontent.com/mihaixxl/0fc6426ec97aafcaa3895a31de3b1b5d/raw/ka_attacks.json";
-    let lastSnobCount = 0;
+
+    // conversie corectă a datelor "17.09.2025, 01:15:53"
+    function parseDate(dateStr) {
+      const [d, t] = dateStr.split(", ");
+      const [day, month, year] = d.split(".");
+      return new Date(`${year}-${month}-${day}T${t}`);
+    }
+
+    let allAttacks = [];
 
     async function loadData() {
       try {
         const res = await fetch(GIST_URL + "?t=" + Date.now());
         const json = await res.json();
+        allAttacks = json.data;
 
-        document.getElementById("lastExport").textContent =
+        document.getElementById("exportTime").textContent =
           "Ultimul export: " + new Date(json.exportatLa).toLocaleString("ro-RO");
 
-        const tbody = document.querySelector("#attacksTable tbody");
-        tbody.innerHTML = "";
-
-        // 🔹 Filtre
-        const fPlayer = document.getElementById("filterPlayer").value.toLowerCase();
-        const fCoord = document.getElementById("filterCoord").value;
-        const fSnob = document.getElementById("filterSnob").checked;
-
-        let snobCount = 0;
-
-        json.data.forEach(atac => {
-          if (fPlayer && !atac.origine.toLowerCase().includes(fPlayer) && !atac.destin.toLowerCase().includes(fPlayer)) return;
-          if (fCoord && !atac.destin.includes(fCoord)) return;
-          if (fSnob && !atac.unitImg.includes("unit_snob")) return;
-
-          if (atac.unitImg.includes("unit_snob")) snobCount++;
-
-          const tr = document.createElement("tr");
-          const ts = new Date(atac.sosire).getTime();
-
-          tr.innerHTML = `
-            <td>${atac.tip}</td>
-            <td><img src="${atac.unitImg}"></td>
-            <td>${atac.destin}</td>
-            <td>${atac.origine}</td>
-            <td>${atac.sosire}</td>
-            <td><span class="countdown" data-timestamp="${ts}"></span></td>
-          `;
-          tbody.appendChild(tr);
-        });
-
-        // Sunet dacă a apărut un snob nou
-        if (snobCount > lastSnobCount) {
-          document.getElementById("snobSound").play();
-        }
-        lastSnobCount = snobCount;
-
-        updateCountdowns();
+        renderTable(allAttacks);
       } catch (e) {
-        console.error("Eroare la încărcare JSON", e);
+        console.error("Eroare încărcare gist:", e);
       }
     }
 
-    function formatTime(sec) {
-      let h = Math.floor(sec / 3600);
-      let m = Math.floor((sec % 3600) / 60);
-      let s = sec % 60;
-      return `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    function renderTable(attacks) {
+      const tbody = document.querySelector("#attacksTable tbody");
+      tbody.innerHTML = "";
+      attacks.forEach(atac => {
+        const tr = document.createElement("tr");
+        const ts = parseDate(atac.sosire).getTime();
+        tr.innerHTML = `
+          <td>${atac.tip}</td>
+          <td><img src="${atac.unitImg}" width="20"></td>
+          <td>${atac.destin}</td>
+          <td>${atac.origine}</td>
+          <td>${atac.sosire}</td>
+          <td><span class="countdown" data-timestamp="${ts}"></span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      updateCountdowns();
     }
 
     function updateCountdowns() {
       const now = Date.now();
       document.querySelectorAll(".countdown").forEach(span => {
         const ts = parseInt(span.getAttribute("data-timestamp"), 10);
+        if (isNaN(ts)) {
+          span.textContent = "invalid";
+          return;
+        }
         let sec = Math.floor((ts - now) / 1000);
         if (sec < 0) sec = 0;
 
-        span.textContent = formatTime(sec);
+        const h = Math.floor(sec / 3600);
+        const m = Math.floor((sec % 3600) / 60);
+        const s = sec % 60;
+        span.textContent = `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
 
+        // culori în funcție de timp
         span.className = "countdown";
         if (sec < 15 * 60) span.classList.add("danger");
         else if (sec < 60 * 60) span.classList.add("warning");
@@ -127,10 +113,22 @@
         else span.classList.add("long");
       });
     }
+    setInterval(updateCountdowns, 1000);
+
+    function applyFilters() {
+      let filtered = allAttacks;
+      const player = document.getElementById("filterPlayer").value.trim().toLowerCase();
+      const coords = document.getElementById("filterCoords").value.trim();
+      const snobOnly = document.getElementById("filterSnob").checked;
+
+      if (player) filtered = filtered.filter(a => a.origine.toLowerCase().includes(player));
+      if (coords) filtered = filtered.filter(a => a.destin.includes(coords));
+      if (snobOnly) filtered = filtered.filter(a => a.unitImg.includes("snob"));
+
+      renderTable(filtered);
+    }
 
     loadData();
-    setInterval(loadData, 60000);   // la 1 minut
-    setInterval(updateCountdowns, 1000); // update la secundă
   </script>
 </body>
 </html>
