@@ -2,37 +2,25 @@
 <html lang="ro">
 <head>
   <meta charset="UTF-8">
-  <title>⚔️ Monitorizare Atacuri KingsAge</title>
+  <title>KA - Atacuri</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; }
-    h1 { text-align: center; }
-    table { border-collapse: collapse; width: 100%; margin-top: 15px; }
-    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+    body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 20px; }
+    h1 { text-align: center; color: #333; }
+    table { border-collapse: collapse; margin: 20px auto; width: 95%; background: white; }
+    th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: center; }
     th { background: #eee; }
-    .countdown { font-weight: bold; padding: 3px 6px; border-radius: 4px; }
-    .danger { background: #ff4d4d; color: white; }
-    .warning { background: #ffcc00; color: black; }
-    .safe { background: #66ff66; color: black; }
-    .long { background: #ddd; color: black; }
-    .filters { margin: 10px auto; text-align: center; }
-    .filters input { margin: 0 5px; padding: 3px; }
+    img { height: 20px; vertical-align: middle; }
+    .small { font-size: 12px; color: #666; }
   </style>
 </head>
 <body>
-  <h1>⚔️ Monitorizare Atacuri KingsAge</h1>
-  <p id="exportTime">Ultimul export: ...</p>
-
-  <div class="filters">
-    👤 Jucător: <input type="text" id="filterPlayer" placeholder="ex: Panteraso">
-    📍 Coordonate: <input type="text" id="filterCoords" placeholder="ex: 509|495">
-    👑 Doar snobi: <input type="checkbox" id="filterSnob">
-    <button onclick="applyFilters()">Aplică filtre</button>
+  <h1>📜 Atacuri KingsAge</h1>
+  <div id="info" class="small" style="text-align:center; margin-bottom:10px;">
+    Se încarcă datele...
   </div>
-
-  <table id="attacksTable">
+  <table id="attacks">
     <thead>
       <tr>
-        <th>Tip</th>
         <th>Unitate</th>
         <th>Destinație</th>
         <th>Origine</th>
@@ -44,98 +32,36 @@
   </table>
 
   <script>
-    const GIST_URL = "https://gist.githubusercontent.com/mihaixxl/0fc6426ec97aafcaa3895a31de3b1b5d/raw/ka_attacks.json";
-
-    // conversie corectă a datelor "17.09.2025, 01:15:53"
-    function parseDate(dateStr) {
-      const [d, t] = dateStr.split(", ");
-      const [day, month, year] = d.split(".");
-      return new Date(`${year}-${month}-${day}T${t}`);
-    }
-
-    let allAttacks = [];
-
     async function loadData() {
+      const url = "https://gist.githubusercontent.com/mihaixxl/0fc6426ec97aafcaa3895a31de3b1b5d/raw/ka_attacks.json?ts=" + Date.now();
       try {
-        const res = await fetch(GIST_URL + "?t=" + Date.now());
+        const res = await fetch(url);
         const json = await res.json();
-        allAttacks = json.data;
 
-        document.getElementById("exportTime").textContent =
-          "Ultimul export: " + new Date(json.exportatLa).toLocaleString("ro-RO");
+        document.getElementById("info").innerText = "Ultimul export: " + json.exportatLa;
 
-        applyFilters(); // aplică filtre și elimină expiratele
-      } catch (e) {
-        console.error("Eroare încărcare gist:", e);
-      }
-    }
+        const tbody = document.querySelector("#attacks tbody");
+        tbody.innerHTML = "";
 
-    function renderTable(attacks) {
-      const tbody = document.querySelector("#attacksTable tbody");
-      tbody.innerHTML = "";
-
-      const now = Date.now();
-      attacks
-        .filter(atac => parseDate(atac.sosire).getTime() > now) // 🔥 elimină expiratele
-        .forEach(atac => {
+        json.data.forEach(a => {
           const tr = document.createElement("tr");
-          const ts = parseDate(atac.sosire).getTime();
           tr.innerHTML = `
-            <td>${atac.tip}</td>
-            <td><img src="${atac.unitImg}" width="20"></td>
-            <td>${atac.destin}</td>
-            <td>${atac.origine}</td>
-            <td>${atac.sosire}</td>
-            <td><span class="countdown" data-timestamp="${ts}"></span></td>
+            <td>${a.unitImg ? `<img src="${a.unitImg}">` : ""} ${a.unit || ""}</td>
+            <td>${a.destin}</td>
+            <td>${a.origine}</td>
+            <td>${a.sosire}</td>
+            <td>${a.ramas}</td>
           `;
           tbody.appendChild(tr);
         });
-
-      updateCountdowns();
+      } catch (e) {
+        document.getElementById("info").innerText = "❌ Eroare la încărcare: " + e;
+      }
     }
 
-    function updateCountdowns() {
-      const now = Date.now();
-      document.querySelectorAll(".countdown").forEach(span => {
-        const ts = parseInt(span.getAttribute("data-timestamp"), 10);
-        if (isNaN(ts)) {
-          span.textContent = "invalid";
-          return;
-        }
-        let sec = Math.floor((ts - now) / 1000);
-        if (sec < 0) sec = 0;
-
-        const h = Math.floor(sec / 3600);
-        const m = Math.floor((sec % 3600) / 60);
-        const s = sec % 60;
-        span.textContent = `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-
-        // culori în funcție de timp
-        span.className = "countdown";
-        if (sec < 15 * 60) span.classList.add("danger");
-        else if (sec < 60 * 60) span.classList.add("warning");
-        else if (sec < 3 * 3600) span.classList.add("safe");
-        else span.classList.add("long");
-      });
-    }
-    setInterval(updateCountdowns, 1000);
-
-    function applyFilters() {
-      let filtered = allAttacks;
-      const player = document.getElementById("filterPlayer").value.trim().toLowerCase();
-      const coords = document.getElementById("filterCoords").value.trim();
-      const snobOnly = document.getElementById("filterSnob").checked;
-
-      if (player) filtered = filtered.filter(a => a.origine.toLowerCase().includes(player));
-      if (coords) filtered = filtered.filter(a => a.destin.includes(coords));
-      if (snobOnly) filtered = filtered.filter(a => a.unitImg.includes("snob"));
-
-      renderTable(filtered);
-    }
-
-    // 🚀 start: prima încărcare + refresh la fiecare 5 secunde
     loadData();
-    setInterval(loadData, 4000);
+    // Reîncarcă automat la fiecare 10 secunde
+    setInterval(loadData, 10000);
   </script>
 </body>
 </html>
