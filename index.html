@@ -1,84 +1,146 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ro">
 <head>
-  <meta charset="utf-8">
-  <title>Atacuri KingsAge</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>KA Attacks Monitor</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #fafafa; color: #333; }
-    h1 { text-align: center; margin-bottom: 10px; }
-    p { text-align: center; font-size: 14px; color: #666; }
-    table { border-collapse: collapse; width: 100%; background: white; }
-    th, td { border: 1px solid #ccc; padding: 8px; font-size: 14px; text-align: left; }
-    th { background: #f0f0f0; }
-    img { height: 20px; vertical-align: middle; margin-right: 5px; }
-    tr:nth-child(even) { background: #f9f9f9; }
-    tr.urgent { background: #ffe0e0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      color: #222;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      max-width: 900px;
+      margin: 20px auto;
+      background: white;
+      box-shadow: 0 0 5px rgba(0,0,0,0.2);
+    }
+    th, td {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+    th {
+      background: #333;
+      color: white;
+    }
+    .countdown {
+      font-weight: bold;
+      padding: 4px 8px;
+      border-radius: 4px;
+      display: inline-block;
+      min-width: 70px;
+    }
+    .danger { background: rgba(255, 99, 71, 0.8); color: white; }   /* < 15 min */
+    .warning { background: rgba(255, 193, 7, 0.85); color: #222; } /* < 1h */
+    .safe { background: rgba(40, 167, 69, 0.7); color: white; }    /* < 3h */
+    .long { background: rgba(0, 123, 255, 0.7); color: white; }    /* >= 3h */
+    img {
+      height: 20px;
+      vertical-align: middle;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 15px;
+      font-size: 14px;
+      color: #666;
+    }
   </style>
 </head>
 <body>
-  <h1>⚔️ Atacuri KingsAge</h1>
-  <p>Ultimul export: <span id="stamp">—</span></p>
-
-  <table id="tbl">
+  <h1>⚔️ Monitorizare Atacuri KingsAge</h1>
+  <div id="lastExport" class="footer"></div>
+  <table id="attacksTable">
     <thead>
       <tr>
-        <th>Unitate</th>
         <th>Tip</th>
+        <th>Unitate</th>
         <th>Destinație</th>
         <th>Origine</th>
         <th>Sosire</th>
-        <th>Rămâs</th>
+        <th>Timp rămas</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
 
   <script>
-    const GIST_RAW_URL = "https://gist.githubusercontent.com/mihaixxl/0fc6426ec97aafcaa3895a31de3b1b5d/raw/65ab46251a9aaf92e73a9b49f7159d68fa75ddb3/ka_attacks.json";
+    const GIST_URL = "https://gist.githubusercontent.com/mihaixxl/0fc6426ec97aafcaa3895a31de3b1b5d/raw/ka_attacks.json";
 
-    async function load() {
+    async function loadData() {
       try {
-        const res = await fetch(GIST_RAW_URL + "?t=" + Date.now());
-        const j = await res.json();
+        const res = await fetch(GIST_URL + "?t=" + Date.now()); // evită cache
+        const json = await res.json();
 
-        document.getElementById("stamp").textContent =
-          new Date(j.exportatLa).toLocaleString("ro-RO");
+        document.getElementById("lastExport").textContent =
+          "Ultimul export: " + new Date(json.exportatLa).toLocaleString("ro-RO");
 
-        const tbody = document.querySelector("#tbl tbody");
+        const tbody = document.querySelector("#attacksTable tbody");
         tbody.innerHTML = "";
 
-        j.data.forEach(r => {
+        json.data.forEach(atac => {
           const tr = document.createElement("tr");
 
-          // Verifică timpul "ramas" dacă e mai mic de 10 minute
-          if (r.ramas) {
-            const parts = r.ramas.split(":");
-            if (parts.length === 2) {
-              const minutes = parseInt(parts[0]);
-              if (!isNaN(minutes) && minutes < 10) {
-                tr.classList.add("urgent");
-              }
-            }
-          }
-
           tr.innerHTML = `
-            <td>${r.unitImg ? `<img src="${r.unitImg}">` : ""}</td>
-            <td>${r.tip || ""}</td>
-            <td>${r.destin || ""}</td>
-            <td>${r.origine || ""}</td>
-            <td>${r.sosire || ""}</td>
-            <td>${r.ramas || ""}</td>
+            <td>${atac.tip}</td>
+            <td><img src="${atac.unitImg}"></td>
+            <td>${atac.destin}</td>
+            <td>${atac.origine}</td>
+            <td>${atac.sosire}</td>
+            <td><span class="countdown" data-ramas="${atac.ramas}">${atac.ramas}</span></td>
           `;
+
           tbody.appendChild(tr);
         });
-      } catch (err) {
-        console.error("Eroare la încărcarea JSON", err);
+
+        updateCountdowns(); // aplică culorile imediat
+      } catch (e) {
+        console.error("Eroare la încărcare JSON", e);
       }
     }
 
-    load();
-    setInterval(load, 60000);
+    function formatTime(sec) {
+      let h = Math.floor(sec / 3600);
+      let m = Math.floor((sec % 3600) / 60);
+      let s = sec % 60;
+      return `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    }
+
+    function updateCountdowns() {
+      document.querySelectorAll(".countdown").forEach(span => {
+        let parts = span.textContent.split(":").map(Number);
+        let sec = 0;
+
+        if (parts.length === 3) {
+          sec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+        } else if (parts.length === 2) {
+          sec = parts[0] * 60 + parts[1];
+        }
+
+        if (sec > 0) sec--;
+
+        // Actualizează text
+        span.textContent = formatTime(sec);
+
+        // Culori în funcție de timp
+        span.className = "countdown"; // reset
+        if (sec < 15 * 60) span.classList.add("danger");
+        else if (sec < 60 * 60) span.classList.add("warning");
+        else if (sec < 3 * 3600) span.classList.add("safe");
+        else span.classList.add("long");
+      });
+    }
+
+    loadData();
+    setInterval(loadData, 60000);   // reîncarcă la 1 minut
+    setInterval(updateCountdowns, 1000); // update la secundă
   </script>
 </body>
 </html>
