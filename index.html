@@ -64,7 +64,7 @@
         document.getElementById("exportTime").textContent =
           "Ultimul export: " + new Date(json.exportatLa).toLocaleString("ro-RO");
 
-        renderTable(allAttacks);
+        applyFilters(); // aplică filtre și elimină expiratele
       } catch (e) {
         console.error("Eroare încărcare gist:", e);
       }
@@ -73,19 +73,24 @@
     function renderTable(attacks) {
       const tbody = document.querySelector("#attacksTable tbody");
       tbody.innerHTML = "";
-      attacks.forEach(atac => {
-        const tr = document.createElement("tr");
-        const ts = parseDate(atac.sosire).getTime();
-        tr.innerHTML = `
-          <td>${atac.tip}</td>
-          <td><img src="${atac.unitImg}" width="20"></td>
-          <td>${atac.destin}</td>
-          <td>${atac.origine}</td>
-          <td>${atac.sosire}</td>
-          <td><span class="countdown" data-timestamp="${ts}"></span></td>
-        `;
-        tbody.appendChild(tr);
-      });
+
+      const now = Date.now();
+      attacks
+        .filter(atac => parseDate(atac.sosire).getTime() > now) // 🔥 elimină expiratele
+        .forEach(atac => {
+          const tr = document.createElement("tr");
+          const ts = parseDate(atac.sosire).getTime();
+          tr.innerHTML = `
+            <td>${atac.tip}</td>
+            <td><img src="${atac.unitImg}" width="20"></td>
+            <td>${atac.destin}</td>
+            <td>${atac.origine}</td>
+            <td>${atac.sosire}</td>
+            <td><span class="countdown" data-timestamp="${ts}"></span></td>
+          `;
+          tbody.appendChild(tr);
+        });
+
       updateCountdowns();
     }
 
@@ -128,7 +133,9 @@
       renderTable(filtered);
     }
 
+    // 🚀 start: prima încărcare + refresh la fiecare 5 secunde
     loadData();
+    setInterval(loadData, 5000);
   </script>
 </body>
 </html>
